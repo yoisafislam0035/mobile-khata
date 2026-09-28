@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "253862131182",
+    "project_id": "mobi-khata",
+    "storage_bucket": "mobi-khata.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:253862131182:android:109b57e448ec2c70a0caff",
+        "android_client_info": {
+          "package_name": "com.aistudio.mobikhata.mzkp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5PqQtx2fFrWSyyqQGFWv2pLrqjWEfR1w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

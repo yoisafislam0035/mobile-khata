@@ -1,0 +1,6 @@
+{
+  "name": "Mobi Khata",
+  "description": "Professional digital khata, customer and supplier ledger, cloud sync, and shop management app.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

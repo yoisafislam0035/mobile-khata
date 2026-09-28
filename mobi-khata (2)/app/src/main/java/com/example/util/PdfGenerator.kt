@@ -1,0 +1,246 @@
+package com.example.util
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
+import androidx.core.content.FileProvider
+import com.example.data.local.entity.BusinessEntity
+import com.example.data.local.entity.CustomerEntity
+import com.example.data.local.entity.CustomerLedgerEntry
+import com.example.data.local.entity.SaleEntity
+import com.example.data.local.entity.SaleItemEntity
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+object PdfGenerator {
+    fun generateInvoicePdf(
+        context: Context,
+        business: BusinessEntity,
+        sale: SaleEntity,
+        items: List<SaleItemEntity>
+    ): File? {
+        val document = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4 standard
+        val page = document.startPage(pageInfo)
+        val canvas = page.canvas
+
+        val titlePaint = Paint().apply {
+            color = Color.parseColor("#0D5C46")
+            textSize = 20f
+            isFakeBoldText = true
+        }
+        val headerPaint = Paint().apply {
+            color = Color.DKGRAY
+            textSize = 12f
+        }
+        val textPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 12f
+        }
+        val boldPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 12f
+            isFakeBoldText = true
+        }
+        val linePaint = Paint().apply {
+            color = Color.LTGRAY
+            strokeWidth = 1f
+        }
+
+        var y = 50f
+        // Business Header
+        canvas.drawText(business.name, 40f, y, titlePaint)
+        y += 18f
+        canvas.drawText("Proprietor: ${business.ownerName} | Tel: ${business.phone}", 40f, y, headerPaint)
+        y += 16f
+        canvas.drawText("${business.address}, ${business.city}", 40f, y, headerPaint)
+        y += 24f
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 20f
+
+        // Invoice Meta
+        canvas.drawText("INVOICE / BILL", 40f, y, boldPaint)
+        canvas.drawText("Invoice #: ${sale.invoiceNo}", 380f, y, boldPaint)
+        y += 18f
+        val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+        canvas.drawText("Date: ${sdf.format(Date(sale.date))}", 40f, y, headerPaint)
+        canvas.drawText("Payment: ${sale.paymentMethod}", 380f, y, headerPaint)
+        y += 18f
+        canvas.drawText("Customer: ${sale.customerName}", 40f, y, boldPaint)
+        y += 24f
+
+        // Table Header
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 16f
+        canvas.drawText("Item / Description", 40f, y, boldPaint)
+        canvas.drawText("Qty", 320f, y, boldPaint)
+        canvas.drawText("Rate", 400f, y, boldPaint)
+        canvas.drawText("Total", 480f, y, boldPaint)
+        y += 10f
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 20f
+
+        // Items
+        for (item in items) {
+            canvas.drawText(item.productName, 40f, y, textPaint)
+            canvas.drawText("${item.quantity}", 320f, y, textPaint)
+            canvas.drawText("Rs. ${item.unitPrice}", 400f, y, textPaint)
+            canvas.drawText("Rs. ${item.total}", 480f, y, textPaint)
+            y += 20f
+        }
+        y += 10f
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 22f
+
+        // Totals
+        canvas.drawText("Subtotal:", 350f, y, headerPaint)
+        canvas.drawText("Rs. ${sale.subtotal}", 480f, y, textPaint)
+        y += 18f
+        if (sale.discount > 0) {
+            canvas.drawText("Discount:", 350f, y, headerPaint)
+            canvas.drawText("- Rs. ${sale.discount}", 480f, y, textPaint)
+            y += 18f
+        }
+        if (sale.tax > 0) {
+            canvas.drawText("Tax:", 350f, y, headerPaint)
+            canvas.drawText("+ Rs. ${sale.tax}", 480f, y, textPaint)
+            y += 18f
+        }
+        canvas.drawText("Grand Total:", 350f, y, boldPaint)
+        canvas.drawText("Rs. ${sale.grandTotal}", 480f, y, boldPaint)
+        y += 18f
+        canvas.drawText("Paid Amount:", 350f, y, headerPaint)
+        canvas.drawText("Rs. ${sale.paidAmount}", 480f, y, textPaint)
+        y += 18f
+        if (sale.balanceAmount > 0) {
+            val redPaint = Paint().apply {
+                color = Color.parseColor("#B91C1C")
+                textSize = 12f
+                isFakeBoldText = true
+            }
+            canvas.drawText("Remaining Udhaar:", 350f, y, redPaint)
+            canvas.drawText("Rs. ${sale.balanceAmount}", 480f, y, redPaint)
+            y += 20f
+        }
+
+        y += 40f
+        val footerPaint = Paint().apply {
+            color = Color.GRAY
+            textSize = 11f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("Thank you for your business!", 595f / 2, y, footerPaint)
+        y += 16f
+        canvas.drawText("Generated by Mobi Khata", 595f / 2, y, footerPaint)
+
+        document.finishPage(page)
+        return try {
+            val file = File(context.cacheDir, "Invoice_${sale.invoiceNo}.pdf")
+            val outputStream = FileOutputStream(file)
+            document.writeTo(outputStream)
+            document.close()
+            outputStream.close()
+            file
+        } catch (e: Exception) {
+            document.close()
+            null
+        }
+    }
+
+    fun generateCustomerStatementPdf(
+        context: Context,
+        business: BusinessEntity,
+        customer: CustomerEntity,
+        entries: List<CustomerLedgerEntry>
+    ): File? {
+        val document = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+        val page = document.startPage(pageInfo)
+        val canvas = page.canvas
+
+        val titlePaint = Paint().apply {
+            color = Color.parseColor("#0D5C46")
+            textSize = 18f
+            isFakeBoldText = true
+        }
+        val headerPaint = Paint().apply { color = Color.DKGRAY; textSize = 11f }
+        val textPaint = Paint().apply { color = Color.BLACK; textSize = 10f }
+        val boldPaint = Paint().apply { color = Color.BLACK; textSize = 11f; isFakeBoldText = true }
+        val linePaint = Paint().apply { color = Color.LTGRAY; strokeWidth = 1f }
+
+        var y = 50f
+        canvas.drawText(business.name, 40f, y, titlePaint)
+        y += 18f
+        canvas.drawText("Account Statement", 40f, y, boldPaint)
+        y += 16f
+        canvas.drawText("Customer: ${customer.name} | Phone: ${customer.phone}", 40f, y, headerPaint)
+        y += 16f
+        val balStr = if (customer.currentBalance >= 0) "Receivable (Udhaar): Rs. ${customer.currentBalance}" else "Advance (Jamaa): Rs. ${-customer.currentBalance}"
+        canvas.drawText("Current Balance: $balStr", 40f, y, boldPaint)
+        y += 24f
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 16f
+        canvas.drawText("Date", 40f, y, boldPaint)
+        canvas.drawText("Type", 140f, y, boldPaint)
+        canvas.drawText("Description", 240f, y, boldPaint)
+        canvas.drawText("Amount", 400f, y, boldPaint)
+        canvas.drawText("Balance", 480f, y, boldPaint)
+        y += 8f
+        canvas.drawLine(40f, y, 555f, y, linePaint)
+        y += 18f
+
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        for (entry in entries.take(30)) {
+            canvas.drawText(sdf.format(Date(entry.date)), 40f, y, textPaint)
+            val typeLabel = when (entry.type) {
+                "GAVE_UDHAAR" -> "Udhaar (-)"
+                "GOT_PAYMENT" -> "Payment (+)"
+                "SALE" -> "Sale"
+                "RETURN" -> "Return"
+                else -> entry.type
+            }
+            canvas.drawText(typeLabel, 140f, y, textPaint)
+            canvas.drawText(entry.description.take(20), 240f, y, textPaint)
+            canvas.drawText("Rs. ${entry.amount}", 400f, y, textPaint)
+            canvas.drawText("Rs. ${entry.balanceAfter}", 480f, y, textPaint)
+            y += 18f
+        }
+
+        y += 30f
+        val footerPaint = Paint().apply { color = Color.GRAY; textSize = 10f; textAlign = Paint.Align.CENTER }
+        canvas.drawText("Generated by Mobi Khata", 595f / 2, y, footerPaint)
+        document.finishPage(page)
+
+        return try {
+            val file = File(context.cacheDir, "Statement_${customer.name.replace(" ", "_")}.pdf")
+            val outputStream = FileOutputStream(file)
+            document.writeTo(outputStream)
+            document.close()
+            outputStream.close()
+            file
+        } catch (e: Exception) {
+            document.close()
+            null
+        }
+    }
+
+    fun sharePdf(context: Context, file: File, title: String) {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, title)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share via"))
+    }
+}
